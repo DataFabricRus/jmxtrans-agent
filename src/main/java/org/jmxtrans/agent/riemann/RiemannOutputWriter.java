@@ -28,13 +28,33 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
     private HostAndPort riemannServerHostAndPort;
     private RiemannClient client;
 
-    private ArrayList<String> tags = new ArrayList<String>();
+    private ArrayList<String> tags = new ArrayList<>();
 
     @Override
     public void postConstruct(@Nonnull Map<String, String> settings) {
         super.postConstruct(settings);
 
-        riemannServerHostAndPort = new HostAndPort(getString(settings, "host"), getInt(settings, "port"));
+        String riemannHost;
+        try {
+            riemannHost = getString(settings, "host");
+            if (riemannHost == null || riemannHost.isEmpty()) {
+                throw new IllegalArgumentException("Setting host is empty");
+            }
+        } catch (IllegalArgumentException e) {
+            logger.log(getInfoLevel(), "Riemann host is not defined in config file. Trying to get from env.");
+            riemannHost = System.getenv("riemann_host");
+        }
+
+
+        Integer riemannPort;
+        try {
+            riemannPort = getInt(settings, "port");
+        } catch (IllegalArgumentException e) {
+            logger.log(getInfoLevel(), "Riemann port is not defined in config file. Trying to get from env.");
+            riemannPort = Integer.parseInt(System.getenv("riemann_port"));
+        }
+
+        riemannServerHostAndPort = new HostAndPort(riemannHost, riemannPort);
 
         for (String tag : getString(settings, "tags").split(",")) {
             tags.add(tag.trim());
