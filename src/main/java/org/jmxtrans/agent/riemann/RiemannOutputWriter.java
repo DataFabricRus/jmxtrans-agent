@@ -45,7 +45,6 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
             riemannHost = System.getenv("riemann_host");
         }
 
-
         Integer riemannPort;
         try {
             riemannPort = getInt(settings, "port");
@@ -56,8 +55,18 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
 
         riemannServerHostAndPort = new HostAndPort(riemannHost, riemannPort);
 
-        for (String tag : getString(settings, "tags").split(",")) {
-            tags.add(tag.trim());
+        String tags;
+        try {
+            tags = getString(settings, "tags");
+            if (tags == null || tags.isEmpty()) {
+                throw new IllegalArgumentException("Setting tags is empty");
+            }
+        } catch (IllegalArgumentException e) {
+            logger.log(getInfoLevel(), "Riemann tags is not defined in config file. Trying to get from env.");
+            tags = System.getenv("riemann_tags");
+        }
+        for (String tag : tags.split(",")) {
+            this.tags.add(tag.trim());
         }
 
         logger.log(getInfoLevel(), "RiemannOutputWriter is configured with " + riemannServerHostAndPort);
