@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -19,12 +20,14 @@ import static org.jmxtrans.agent.util.ConfigurationUtils.getString;
 /**
  * Output writer for writing to Riemann server.
  *
- * @see <a href="http://riemann.io/">Riemann monitors distributed systems.</a>
- *
  * @author <a href="mailto:sergey@osipoff.name">Sergey Osipov</a>
+ * @see <a href="http://riemann.io/">Riemann monitors distributed systems.</a>
  */
 public class RiemannOutputWriter extends AbstractOutputWriter {
 
+    private static final String RIEMANN_HOST = "RIEMANN_HOST";
+    private static final String RIEMANN_PORT = "RIEMANN_PORT";
+    private static final String RIEMANN_TAGS = "RIEMANN_TAGS";
     private HostAndPort riemannServerHostAndPort;
     private RiemannClient client;
 
@@ -42,7 +45,7 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
             }
         } catch (IllegalArgumentException e) {
             logger.log(getInfoLevel(), "Riemann host is not defined in config file. Trying to get from env.");
-            riemannHost = System.getenv("riemann_host");
+            riemannHost = getEnvVar(RIEMANN_HOST);
         }
 
         Integer riemannPort;
@@ -50,7 +53,7 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
             riemannPort = getInt(settings, "port");
         } catch (IllegalArgumentException e) {
             logger.log(getInfoLevel(), "Riemann port is not defined in config file. Trying to get from env.");
-            riemannPort = Integer.parseInt(System.getenv("riemann_port"));
+            riemannPort = Integer.parseInt(Objects.requireNonNull(getEnvVar(RIEMANN_PORT)));
         }
 
         riemannServerHostAndPort = new HostAndPort(riemannHost, riemannPort);
@@ -63,7 +66,7 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
             }
         } catch (IllegalArgumentException e) {
             logger.log(getInfoLevel(), "Riemann tags is not defined in config file. Trying to get from env.");
-            tags = System.getenv("riemann_tags");
+            tags = getEnvVar(RIEMANN_TAGS);
         }
         for (String tag : tags.split(",")) {
             this.tags.add(tag.trim());
@@ -78,7 +81,8 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
     }
 
     @Override
-    public void writeQueryResult(@Nonnull String metricName, @Nullable String metricType, @Nullable Object value) throws IOException {
+    public void writeQueryResult(@Nonnull String metricName, @Nullable String metricType, @Nullable Object value)
+            throws IOException {
 
         RiemannMetric metric = new RiemannMetric(
                 metricName,
@@ -143,5 +147,23 @@ public class RiemannOutputWriter extends AbstractOutputWriter {
         if (client.isConnected()) {
             client.close();
         }
+    }
+
+    /**
+     * @param name
+     * @return null if env var doesn't exist
+     */
+    private String getEnvVar(String name) {
+        final String upperCaseName = name.toUpperCase();
+        if (System.getenv().containsKey(upperCaseName)) {
+            return System.getenv(upperCaseName);
+        }
+
+        final String lowerCaseName = name.toLowerCase();
+        if (System.getenv().containsKey(lowerCaseName)) {
+            return System.getenv(lowerCaseName);
+        }
+
+        return null;
     }
 }
